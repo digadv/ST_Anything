@@ -2,7 +2,7 @@ ST_Anything v2.71
 ================
 
 Recent History:
-- v2.5  2017-04-23 New SmartThings Composite Device Handler (i.e. Parent/Child Device Handlers) which eliminates the need for the Multiplexer SmartApps!  Also added Carnon Monoxide, Alarm with Strobe, and Voltage Measurement capabilities. Support for LAN devices only at this time.
+- v2.5  2017-04-23 New SmartThings Composite Device Handler (i.e. Parent/Child Device Handlers) which eliminates the need for the Multiplexer SmartApps!  Also added Carbon Monoxide, Alarm with Strobe, and Voltage Measurement capabilities. Support for LAN devices only at this time.
 - v2.6  2017-04-26 Added support for ThingShield using new Composite Device Handler.  Includes new version of SmartThings library, updates to ST_Anything library, and new ST_Anything_Multiples_Thingshield.ino sketch.  Minor tweak to EX_Alarm logic to better handle whether or not the Strobe Pin is defined.
 - v2.7  2017-05-25 Added support for the Arduino W5500 Ethernet Shield.  Added new ST_Anything_AlarmPanel_ESP8266WiFi.ino sketch.  Revised the ST_Anything_Multiples_ESP8266WiFi.ino sketch to take into account NodeMCU ESP8266 GPIO limitations. 
 - v2.71 2017-05-28 Fix for Arduino + ESP01 (WiFi only) combination.  Arduino IDE Serial Monitor window must now be set to 115200 baud to prevent ESP-01 timeouts.  Also added support for Arduino MKR1000 board and Arduino + WiFi101 Shield (or Adafruit ATWINC1500 module).
@@ -208,6 +208,9 @@ Your screen should look like the following image:
 
 6) When using a NodeMCU ESP8266 board, you need to be aware of some GPIO limitations.  I have assembled my findings in this image:
 ![screenshot](https://cloud.githubusercontent.com/assets/5206084/26479180/53488d08-419f-11e7-824f-aa1649335c02.png)
+
+7) Button Devices - "where do they show up?"  Buttons show up in the SmartApps that use them.  The Aeon Minimote Device Handler, for example, has one tile with a remote control icon on it.  Nothing else.  It also has zero configuration options as well.  I used this as a model for adding "Button" capabilities to ST_Anything per a user request.  When you define the number of buttons (via the gear-based configuration menu in the parent DH) you are announcing to all SmartApps the number of buttons defined.  This in turn allows SmartApps like "Smart Lighting", "CoRE", and "WebCoRE" to know how many "buttons" to offer you to configure an action.  So, the easiest test is to create a new "Smart Lighting" automation, where you define the action to be based on a button "pushed" or "held" event from the Parent Device (no child devices are created for buttons).  Give it a try! I have used this successfully in the past for testing purposes.
+
 
 ## Final Notes for now...
 Plese refer to the header files of the ST_Anything library for explanation of specific classes, constructor arguments, etc... ST_Anything devices support inverted logic, default power-on states, debounce logic, etc...  Read through the top section of the .h files found on the libraries\ST_Anything... folders for more information!
