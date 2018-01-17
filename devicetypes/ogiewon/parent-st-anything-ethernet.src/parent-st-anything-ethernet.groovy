@@ -23,8 +23,10 @@
  *    2017-06-10  Dan Ogorchock  Added Dimmer Switch support
  *    2017-07-09  Dan Ogorchock  Added number of defined buttons tile
  *    2017-08-24  Allan (vseven) Change the way values are pushed to child devices to allow a event to be executed allowing future customization
- *    2007-09-24  Allan (vseven) Added RGB LED light support with a setColor routine
+ *    2007-09-24  Allan (vseven) Added RGB LED light support with a setColorRGB routine
  *    2017-10-07  Dan Ogorchock  Cleaned up formatting for readability
+ *    2017-09-24  Allan (vseven) Added RGBW LED strip support with a setColorRGBW routine
+ *    2017-12-29  Dan Ogorchock  Added WiFi RSSI value per request from ST user @stevesell
  *
  */
  
@@ -34,6 +36,7 @@ metadata {
         capability "Refresh"
         capability "Button"
         capability "Holdable Button"
+        capability "Signal Strength"   
 	}
 
     simulator {
@@ -60,7 +63,19 @@ metadata {
         valueTile("numberOfButtons", "device.numberOfButtons", inactiveLabel: false, width: 2, height: 2) {
 			state "numberOfButtons", label:'${currentValue} buttons', unit:""
 		}
- 
+
+        valueTile("rssi", "device.rssi", width: 2, height: 2) {
+			state("rssi", label:'RSSI ${currentValue}', unit:"",
+				backgroundColors:[
+					[value: -30, color: "#006600"],
+					[value: -45, color: "#009900"],
+					[value: -60, color: "#99cc00"],
+					[value: -70, color: "#ff9900"],
+					[value: -90, color: "#ff0000"]
+				]
+			)
+		}
+
 		childDeviceTiles("all")
 	}
 }
@@ -95,6 +110,14 @@ def parse(String description) {
 			log.debug results
 			return results
         }
+
+		if (name.startsWith("rssi")) {
+			//log.debug "In parse: RSSI name = ${name}, value = ${value}"
+           	results = createEvent(name: name, value: value, displayed: false)
+            log.debug results
+			return results
+        }
+
 
         def isChild = containsDigit(name)
    		//log.debug "Name = ${name}, isChild = ${isChild}, namebase = ${namebase}, namenum = ${namenum}"      
@@ -271,6 +294,12 @@ void childSetColorRGB(String dni, value) {
     sendEthernet("${name} ${value}")
 }
 
+void childSetColorRGBW(String dni, value) {
+    def name = dni.split("-")[-1]
+    log.debug "childSetColorRGBW($dni), name = ${name}, colorRGBW = ${value}"
+    sendEthernet("${name} ${value}")
+}
+
 void childRelayOn(String dni) {
     def name = dni.split("-")[-1]
     log.debug "childRelayOn($dni), name = ${name}"
@@ -356,6 +385,12 @@ private void createChildDevice(String deviceName, String deviceNumber) {
                 	break
          		case "rgbSwitch": 
                 		deviceHandlerName = "Child RGB Switch" 
+                	break
+         		case "generic": 
+                		deviceHandlerName = "Child Generic Sensor" 
+                	break
+         		case "rgbwSwitch": 
+                		deviceHandlerName = "Child RGBW Switch" 
                 	break
          		case "relaySwitch": 
                 		deviceHandlerName = "Child Relay Switch" 

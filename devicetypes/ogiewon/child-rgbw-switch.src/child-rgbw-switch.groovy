@@ -1,5 +1,5 @@
 /**
- *  Child RGB Switch
+ *  Child RGBW Switch
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  *  in compliance with the License. You may obtain a copy of the License at:
@@ -16,12 +16,13 @@
  *    ----        ---            ----
  *    2017-10-01  Allan (vseven) Original Creation (based on Dan Ogorchock's child dimmer switch)
  *    2017-10-06  Allan (vseven) Added preset color buttons and logic behind them.
+ *    2017-10-12  Allan (vseven) Added ability to change White and renamed to RGBW from RGB
  * 
  */
 
 // for the UI
 metadata {
-	definition (name: "Child RGB Switch", namespace: "ogiewon", author: "Allan (vseven) - based on code by Dan Ogorchock") {
+	definition (name: "Child RGBW Switch", namespace: "ogiewon", author: "Allan (vseven) - based on code by Dan Ogorchock") {
 	capability "Switch"		
 	capability "Switch Level"
 	capability "Actuator"
@@ -30,6 +31,7 @@ metadata {
 	capability "Light"
 
 	command "generateEvent", ["string", "string"]
+
 	command "softwhite"
 	command "daylight"
 	command "warmwhite"
@@ -42,7 +44,11 @@ metadata {
 	command "purple"
 	command "yellow"
 	command "white"
-	}
+
+  command "setWhiteLevel"
+
+  attribute "whiteLevel", "number"
+  }
 
 	simulator {
 		// TODO: define status and reply messages here
@@ -63,6 +69,9 @@ metadata {
 				attributeState "color", action:"color control.setColor"
 			}
 		}
+		controlTile("whiteSliderControl", "device.whiteLevel", "slider", height: 1, width: 6, inactiveLabel: false) {
+			state "whiteLevel", action:"setWhiteLevel", label:'White Level'
+        }
  		valueTile("lastUpdated", "device.lastUpdated", inactiveLabel: false, decoration: "flat", width: 6, height: 2) {
     			state "default", label:'Last Updated ${currentValue}', backgroundColor:"#ffffff"
 		}
@@ -115,20 +124,30 @@ metadata {
 		    state "onwhite", label:"White", action:"white", icon:"st.illuminance.illuminance.bright", backgroundColor:"#FFFFFF"
 		}
 		main(["switch"])
-		details(["switch", "level", "color", "softwhite","daylight","warmwhite","red","green","blue","white","cyan",
+		details(["switch", "level", "color", "whiteSliderControl", "softwhite","daylight","warmwhite","red","green","blue","white","cyan",
 			 "magenta","orange","purple","yellow","lastUpdated"])
 	}
 }
 
 void on() {
     sendEvent(name: "switch", value: "on")
+    //log.debug("On pressed.  Sending last known color value of $lastColor or if null command to white.")
     def lastColor = device.latestValue("color")
-    log.debug("On pressed.  Sending last known color value of $lastColor or if null command to white.")
+    // Also since we are turning back on make sure we have at least one level turned up.
+    def level = device.latestValue("level")
+    def whiteLevel = device.latestValue("whiteLevel")
+    if (level == 0 || level == null) {
+     //log.debug("Level is 0 or null.  Checking whitelevel")
+        if (whiteLevel == 0 || whiteLevel == null) {
+        	//log.debug("whiteLevel is 0 or null.  Setting to 20")
+			    sendEvent(name: "whiteLevel", value: 20)
+        }
+    }
     parent.childOn(device.deviceNetworkId)
-    if ( lastColor == Null ) {  // For initial run
-    	white() 
-    } else {
-    	adjustColor(lastColor)
+   	if ( lastColor == Null ) {  // For initial run
+   		white() 
+   	} else {
+   		adjustColor(lastColor)
     }
 }
 
@@ -153,39 +172,63 @@ def setColor(value) {
 
 def setLevel(value) {
     def level = Math.min(value as Integer, 100)
-    // log.debug("Level value in percentage: $level")
-    sendEvent(name: "level", value: level)
-	
-    // Turn on or off based on level selection
-    if (level == 0) { 
-	off() 
-    } else {
-	if (device.latestValue("switch") == "off") { on() }
+    //log.debug("Level value in percentage: $level")
+    sendEvent(name: "level", value: level) 
 	def lastColor = device.latestValue("color")
-	    // log.debug("lastColor value is $lastColor")
+	//log.debug("lastColor value is $lastColor")
 	adjustColor(lastColor)
+}
+
+def setWhiteLevel(value) {
+    //log.debug "setWhiteLevel: ${value}"
+    value = Math.min(value as Integer, 100)
+    sendEvent(name: "whiteLevel", value: value)
+    def lastColor = device.latestValue("color")
+	adjustColor(lastColor)
+}
+
+void checkOnOff() {
+ // Turn on or off based on level selection of both levels
+    def level = device.latestValue("level")
+    def whiteLevel = device.latestValue("whiteLevel")
+    if (level == 0) { 
+        if (whiteLevel == 0) {
+			off() 
+        }
+    } else {
+	    if (device.latestValue("switch") == "off") {
+    	    on() 
+        }
     }
 }
 
 def adjustColor(colorInHEX) {
     // Convert the hex color, apply the level after making sure its valid, then send to parent
-    //log.debug("colorInHEX passed in: $colorInHEX")
+    log.debug("colorInHEX passed in: $colorInHEX")
     def level = device.latestValue("level")
-    // log.debug("level value is $level")
-    if(level == null)
+    def whiteLevel = device.latestValue("whiteLevel")
+    //log.debug("level value is $level")
+    //log.debug("whiteLevel value is $whiteLevel")
+    if(level == null) {
     	level = 50
-    log.debug "level is: ${level}"
+        //log.debug "level is: ${level}"
+    }
 
     def c = hexToRgb(colorInHEX)
     
     def r = hex(c.r * (level/100))
     def g = hex(c.g * (level/100))
     def b = hex(c.b * (level/100))
-
-    def adjustedColor = "#${r}${g}${b}"
+    
+    def w = hex(whiteLevel * 255 / 100)
+    
+    def adjustedColor = "#${r}${g}${b}${w}"
     log.debug("Adjusted color is $adjustedColor")
 	
-    parent.childSetColorRGB(device.deviceNetworkId, adjustedColor)
+    // First check if we should be on or off based on the levels
+    checkOnOff()
+    // Then send down the color info
+    parent.childSetColorRGBW(device.deviceNetworkId, adjustedColor)
 }
 
 def generateEvent(String name, String value) {
